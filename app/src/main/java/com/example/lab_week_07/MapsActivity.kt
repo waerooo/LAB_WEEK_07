@@ -16,13 +16,15 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
-
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +43,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
 
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
@@ -58,10 +61,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             else -> requestPermissionLauncher.launch(ACCESS_FINE_LOCATION)
         }
-
-        val sydney = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
     }
 
     private fun hasLocationPermission() =
@@ -79,6 +78,22 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun getLastLocation() {
-        Log.d("MapsActivity", "getLastLocation() called.")
+        try {
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        val userLatLng = LatLng(location.latitude, location.longitude)
+                        mMap.addMarker(MarkerOptions().position(userLatLng).title("You are here"))
+                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15f))
+                    } else {
+                        Log.d("MapsActivity", "Location is null.")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MapsActivity", "Error getting location", e)
+                }
+        } catch (e: SecurityException) {
+            Log.e("MapsActivity", "Location permission not granted", e)
+        }
     }
 }
